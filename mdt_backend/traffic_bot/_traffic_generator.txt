@@ -1,0 +1,135 @@
+from asgiref.sync import sync_to_async
+import aiohttp
+import asyncio
+import random
+from django.utils import timezone
+from fake_useragent import UserAgent
+from pyppeteer import launch
+
+from apps.bot.models import BotInstance, VisitLog, BotStatus
+from traffic_bot.bot.proxy_manager import ProxyManager
+from traffic_bot.bot.settings_bot import PROXY_LIST, USER_AGENTS
+
+class TrafficGenerator:
+    def __init__(self, bot_instance_id):
+        self.bot_instance = BotInstance.objects.get(id=bot_instance_id)  # Synchronous for init
+        self.ua = UserAgent()
+        self.proxy_manager = ProxyManager(PROXY_LIST)
+        self.target_url = self.bot_instance.website.url
+        self.min_stay_time = self.bot_instance.min_stay_time
+        self.max_stay_time = self.bot_instance.max_stay_time
+        self.concurrency = 100  # Increased for 1M views
+        self.visit_logs = []  # For batching VisitLog creation
+
+    async def http_visit(self, session, proxy=None):
+        headers = {"User-Agent": self.ua.random}
+        try:
+            async with session.get(self.target_url, proxy=proxy, timeout=10) as response:
+                if response.status == 200:
+                    stay_time = random.randint(self.min_stay_time, self.max_stay_time)
+                    await asyncio.sleep(stay_time)
+                    self.visit_logs.append({
+                        'bot_instance': self.bot_instance,
+                        'stay_time': stay_time,
+                        'ip_address': proxy.split("//")[1].split(":")[0] if proxy else None,
+                        'user_agent': headers["User-Agent"],
+                        'success': True,
+                        'timestamp': timezone.now()
+                    })
+                    self.bot_instance.visits_sent += 1
+                    self.bot_instance.success_rate = f"{(self.bot_instance.visits_sent / self.bot_instance.requested_visits) * 100:.2f}%"
+                    if len(self.visit_logs) >= 100:
+                        await sync_to_async(self.save_visit_logs)()
+                    await sync_to_async(self.bot_instance.save)()
+                    return True
+                return False
+        except Exception:
+            self.visit_logs.append({
+                'bot_instance': self.bot_instance,
+                'stay_time': 0,
+                'ip_address': proxy.split("//")[1].split(":")[0] if proxy else None,
+                'user_agent': headers["User-Agent"],
+                'success': False,
+                'timestamp': timezone.now()
+            })
+            if len(self.visit_logs) >= 100:
+                await sync_to_async(self.save_visit_logs)()
+            return False
+
+    async def browser_visit(self, proxy=None):
+        browser = None
+        try:
+            browser = await launch(headless=True, args=[f'--proxy-server={proxy}'] if proxy else [])
+            page = await browser.newPage()
+            await page.setUserAgent(self.ua.random)
+            await page.goto(self.target_url, {'waitUntil': 'networkidle2'})
+            stay_time = random.randint(self.min_stay_time, self.max_stay_time)
+            await page.evaluate('window.scrollTo(0, document.body.scrollHeight)')
+            await page.click('body')
+            await asyncio.sleep(stay_time)
+            self.visit_logs.append({
+                'bot_instance': self.bot_instance,
+                'stay_time': stay_time,
+                'ip_address': proxy.split("//")[1].split(":")[0] if proxy else None,
+                'user_agent': await page.evaluate('navigator.userAgent'),
+                'success': True,
+                'timestamp': timezone.now()
+            })
+            self.bot_instance.visits_sent += 1
+            self.bot_instance.success_rate = f"{(self.bot_instance.visits_sent / self.bot_instance.requested_visits) * 100:.2f}%"
+            if len(self.visit_logs) >= 100:
+                await sync_to_async(self.save_visit_logs)()
+            await sync_to_async(self.bot_instance.save)()
+            await browser.close()
+            return True
+        except Exception:
+            self.visit_logs.append({
+                'bot_instance': self.bot_instance,
+                'stay_time': 0,
+                'ip_address': proxy.split("//")[1].split(":")[0] if proxy else None,
+                'user_agent': self.ua.random,
+                'success': False,
+                'timestamp': timezone.now()
+            })
+            if len(self.visit_logs) >= 100:
+                await sync_to_async(self.save_visit_logs)()
+            await browser.close() if browser else None
+            return False
+
+    def save_visit_logs(self):
+        VisitLog.objects.bulk_create([VisitLog(**log) for log in self.visit_logs])
+        self.visit_logs = []
+
+    async def run(self):
+        self.bot_instance.status = BotStatus.RUNNING
+        self.bot_instance.start_time = timezone.now()
+        await sync_to_async(self.bot_instance.save)()
+
+        async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(limit=100)) as session:
+            while self.bot_instance.visits_sent < self.bot_instance.requested_visits:
+                tasks = []
+                for _ in range(min(self.concurrency, self.bot_instance.requested_visits - self.bot_instance.visits_sent)):
+                    proxy = self.proxy_manager.get_proxy()
+                    if random.random() < 0.05:  # Reduced to 5% for browser visits
+                        tasks.append(self.browser_visit(proxy))
+                    else:
+                        tasks.append(self.http_visit(session, proxy))
+                results = await asyncio.gather(*tasks, return_exceptions=True)
+                await asyncio.sleep(0.1)  # Small delay to avoid overwhelming server
+
+        # Save any remaining visit logs
+        if self.visit_logs:
+            await sync_to_async(self.save_visit_logs)()
+
+        self.bot_instance.status = BotStatus.COMPLETED
+        self.bot_instance.end_time = timezone.now()
+        await sync_to_async(self.bot_instance.save)()
+
+def run_traffic_generator(bot_instance_id):
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        generator = TrafficGenerator(bot_instance_id)
+        loop.run_until_complete(generator.run())
+    finally:
+        loop.close()

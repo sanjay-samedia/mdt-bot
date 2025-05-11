@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+    <h1>Traffic Bot Dashboard</h1>
+    <div id="analytics">
+        <h2>Real-Time Analytics</h2>
+        <p>Total Visits: <span id="total-visits"></span></p>
+        <p>Success Rate: <span id="success-rate"></span></p>
+        <p>Average Stay Time: <span id="avg-stay-time"></span> seconds</p>
+        <p>Success Count: <span id="success-count"></span></p>
+        <p>Failure Count: <span id="failure-count"></span></p>
+    </div>
+    <canvas id="traffic-chart"></canvas>
+{% endblock %}

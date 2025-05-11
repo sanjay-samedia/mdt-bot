@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+{% block title %}Visit Logs{% endblock %}
+{% block content %}
+    <h1>Visit Logs</h1>
+    <table>
+        <thead>
+            <tr>
+                <th>Timestamp</th>
+                <th>Website</th>
+                <th>Stay Time</th>
+                <th>IP Address</th>
+                <th>User Agent</th>
+                <th>Success</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for log in visit_logs %}
+                <tr>
+                    <td>{{ log.timestamp }}</td>
+                    <td>{{ log.bot_instance.website.name }}</td>
+                    <td>{{ log.stay_time }} seconds</td>
+                    <td>{{ log.ip_address }}</td>
+                    <td>{{ log.user_agent }}</td>
+                    <td>{{ log.success }}</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endblock %}

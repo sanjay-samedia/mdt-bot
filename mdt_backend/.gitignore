@@ -1,0 +1,32 @@
+### Python ###
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+.Python
+env/
+build/
+
+# Unit test / coverage reports
+.cache
+pytest-report*.html
+testdb.sqlite3*
+
+# .env  #Temporary
+.venv/
+venv/
+ENV/
+
+### Django ###
+*.pyc
+*.sqlite3
+/static
+media
+
+*.sql
+
+
+# celery beat schedule file
+celerybeat-schedule*

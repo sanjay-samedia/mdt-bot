@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+{% block title %}Bot Control{% endblock %}
+{% block content %}
+    <h1>Bot Control</h1>
+    <form method="POST" action="{% url 'start_bot' %}">
+        {% csrf_token %}
+        <label for="website">Website:</label>
+        <select id="website" name="website" required>
+            {% for website in websites %}
+                <option value="{{ website.id }}">{{ website.name }}</option>
+            {% endfor %}
+        </select>
+        <label for="requested_visits">Requested Visits:</label>
+        <input type="number" id="requested_visits" name="requested_visits" value="1000000" required>
+        <label for="min_stay_time">Min Stay Time (seconds):</label>
+        <input type="number" id="min_stay_time" name="min_stay_time" value="3" required>
+        <label for="max_stay_time">Max Stay Time (seconds):</label>
+        <input type="number" id="max_stay_time" name="max_stay_time" value="7" required>
+        <button type="submit">Start Bot</button>
+    </form>
+    <h2>Running Bots</h2>
+    <ul>
+        {% for bot in bot_instances %}
+            <li>
+                {{ bot.name }} - {{ bot.website.name }} ({{ bot.status }})
+                <form method="POST" action="{% url 'stop_bot' bot.id %}">
+                    {% csrf_token %}
+                    <button type="submit">Stop</button>
+                </form>
+            </li>
+        {% endfor %}
+    </ul>
+{% endblock %}
