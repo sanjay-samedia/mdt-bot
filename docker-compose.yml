@@ -8,7 +8,7 @@ services:
     container_name: django_app
     image: mdt-bot-backend
     volumes:
-      - ./mdt_backend/static:/app/static
+      - ./mdt_backend/static:/static
       - ./mdt_backend:/app
     command: >
       sh -c "
