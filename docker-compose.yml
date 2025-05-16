@@ -6,6 +6,7 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: django_app
+    image: mdt-bot-backend
     volumes:
       - ./mdt_backend/static:/app/static
       - ./mdt_backend:/app
@@ -33,6 +34,7 @@ services:
       context: ./mdt_frontend
       dockerfile: Dockerfile
     container_name: react_app
+    image: mdt-bot-frontend
     volumes:
       - django_static:/usr/share/nginx/html/static
       - ./mdt_frontend:/app
