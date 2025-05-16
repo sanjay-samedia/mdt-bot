@@ -7,7 +7,7 @@ services:
       dockerfile: Dockerfile
     container_name: django_app
     volumes:
-      - django_static:/app/mdt_backend/static
+      - ./mdt_backend/static:/app/static
       - ./mdt_backend:/app
     command: >
       sh -c "
