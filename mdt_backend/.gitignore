@@ -14,7 +14,7 @@ build/
 pytest-report*.html
 testdb.sqlite3*
 
-# .env  #Temporary
+.env
 .venv/
 venv/
 ENV/

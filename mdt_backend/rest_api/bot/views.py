@@ -68,17 +68,27 @@ class BotInstanceViewSet(viewsets.ModelViewSet):
             bot_instance_id = bot_instance.id
 
             # Dynamic chunk size: small tasks use smaller chunks for parallelism
-            chunk_size = min(10000, max(10, requested_visits // 16))
-            selenium_visits_left = requested_visits // 4
+            chunk_size = min(10000, max(10, requested_visits // 32))
+            selenium_visits_target = requested_visits // 2
+            selenium_visits_scheduled = 0
             tasks = []
 
             for i in range(0, requested_visits, chunk_size):
                 visits = min(chunk_size, requested_visits - i)
-                # use_selenium = selenium_visits_left > 0
-                # if use_selenium:
-                #     selenium_visits_left -= visits
+
+                if selenium_visits_scheduled < selenium_visits_target:
+                    # Schedule with selenium
+                    use_selenium = True
+                    # Cap the selenium visits to the remaining required selenium visits
+                    if selenium_visits_scheduled + visits > selenium_visits_target:
+                        visits = selenium_visits_target - selenium_visits_scheduled
+                    selenium_visits_scheduled += visits
+                else:
+                    # Schedule without selenium
+                    use_selenium = False
+
                 tasks.append(
-                    process_traffic_task.s(bot_instance_id, website.url, visits, True)
+                    process_traffic_task.s(bot_instance_id, website.url, visits, use_selenium)
                 )
 
             print("tasks:", tasks)

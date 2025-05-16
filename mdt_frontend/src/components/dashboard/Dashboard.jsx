@@ -29,7 +29,7 @@ import { motion } from "framer-motion";
 import { useAuth } from "../../context/AuthContext";
 import { useTraffic } from "../../hooks/useTraffic";
 import { useSnackbar } from "../../context/SnackbarContext";
-import Snackbar from "../common/SnackBar";
+import Snackbar from "../common/Snackbar";
 
 const URL_REGEX =
   /^(https?:\/\/)?(www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_+.~#?&//=]*)$/;

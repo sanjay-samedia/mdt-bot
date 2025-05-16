@@ -1,0 +1,82 @@
+version: "3.9"
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: django_app
+    volumes:
+      - ./mdt_backend:/app
+    command: >
+      sh -c "
+        python manage.py migrate &&
+        gunicorn traffic_bot_server.wsgi:application --bind 0.0.0.0:8000
+      "
+    ports:
+      - "8000:8000"
+    depends_on:
+      - redis
+    environment:
+      - DEBUG=1
+      - DJANGO_SETTINGS_MODULE=traffic_bot_server.settings
+      - DJANGO_SUPERUSER_USERNAME=admin
+      - DJANGO_SUPERUSER_PASSWORD=admin
+      - DATABASE_URL=sqlite:////app/db/db.sqlite3
+    env_file:
+      - mdt_backend/.env
+    
+
+  frontend:
+    build:
+      context: ./mdt_frontend
+      dockerfile: Dockerfile
+    container_name: react_app
+    volumes:
+      - ./mdt_frontend:/app
+    ports:
+      - "3000:80"  # 👈 Map container port 80 (Nginx) to host 3000
+    depends_on:
+      - backend
+
+  # db:
+  #   image: postgres:15
+  #   container_name: postgres_db
+  #   restart: always
+  #   environment:
+  #     POSTGRES_DB: botdb
+  #     POSTGRES_USER: sanjay
+  #     POSTGRES_PASSWORD: admin
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #   ports:
+  #     - "5432:5432"
+
+  redis:
+    image: redis:6.2.6
+    container_name: redis_server
+    ports:
+      - 6379:6379
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+
+  celery:
+    build: .
+    command: >
+      sh -c "
+        python manage.py migrate &&
+        celery -A mdt_backend.traffic_bot_server worker --concurrency=32 -l info
+      "
+    environment:
+      - DJANGO_SETTINGS_MODULE=mdt_backend.traffic_bot_server.settings
+    depends_on:
+      - backend
+      - redis
+    volumes:
+      - ./mdt_backend/traffic_bot_server:/app/mdt_backend/traffic_bot_server
+      - ./templates:/app/templates
+
+
+volumes:
+  redis_data:

@@ -1,7 +1,7 @@
 "use client"
 
 import { createContext, useContext, useState, useCallback } from "react"
-import Snackbar from "../components/common/SnackBar"
+import Snackbar from "../components/common/Snackbar"
 
 const SnackbarContext = createContext(null)
 

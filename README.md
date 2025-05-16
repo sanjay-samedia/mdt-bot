@@ -1,3 +1,26 @@
+🌐 Common Local URLs
+
+🖼️ Frontend UI
+-> React / Vue / Next.js (Vite, Webpack, etc.):
+    http://localhost:3000
+    http://localhost:5173 (if using Vite)
+-> Port is defined in your docker-compose.yml under ports: of the frontend service.
+
+⚙️ Backend API (Django)
+-> Django (interactive Swagger UI):
+    http://localhost:8000/swagger      ← Swagger UI
+    http://localhost:8000/redoc     ← ReDoc alternative
+    http://localhost:8000           ← Raw API root
+
+-> Django (admin panel):
+    http://localhost:8000/admin
+
+
+🗄️ Database Admin (if you're running one via Docker)
+-> pgAdmin (PostgreSQL):
+    http://localhost:5050
+
+
 
 # Frontend:
 # React + Vite

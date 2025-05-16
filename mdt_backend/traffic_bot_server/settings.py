@@ -9,8 +9,9 @@ https://docs.djangoproject.com/en/5.2/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
-
+import os
 from pathlib import Path
+from decouple import config
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -20,28 +21,17 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-t#x9_-q9qt^j1x6zo3r&tk!5^j1a5lv#m9z8+w2frwegipxd!v'
+SECRET_KEY = config('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = config('DEBUG', default=False, cast=bool)
 
-ALLOWED_HOSTS = [
-    'localhost',
-    'https://localhost:5174',
-    "http://localhost:3001",  # React frontend
-    "https://localhost:3001",  # React frontend
-    "http://127.0.0.1:3001",  # React frontend
-    "https://127.0.0.1:3001",  # React frontend
-    '127.0.0.1',
-    "https://127.0.0.1:8000/",
-    'https://31bb-39-51-104-189.ngrok-free.app',
-    '.ngrok-free.app'
-]
+ALLOWED_HOSTS = ['*']
 
 
 # Celery
-CELERY_BROKER_URL = 'redis://127.0.0.1:6379/0'
-CELERY_RESULT_BACKEND = 'redis://127.0.0.1:6379/0'
+CELERY_BROKER_URL = 'redis://redis:6379/0'
+CELERY_RESULT_BACKEND = 'redis://redis:6379/0'
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
@@ -84,32 +74,11 @@ MIDDLEWARE = [
 
 CORS_ALLOW_ALL_ORIGINS = True
 
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5174",  # React frontend
-    "https://localhost:5174",  # React frontend
-    "http://127.0.0.1:5174",  # React frontend
-    "https://127.0.0.1:5174",  # React frontend
-    "http://localhost:3001",  # React frontend
-    "https://localhost:3001",  # React frontend
-    "http://127.0.0.1:3001",  # React frontend
-    "https://127.0.0.1:3001",  # React frontend
-    'https://31bb-39-51-104-189.ngrok-free.app',
-]
+# CORS_ALLOWED_ORIGINS = []
 
 CORS_ALLOW_CREDENTIALS = True
 
-CSRF_TRUSTED_ORIGINS = [
-    "https://127.0.0.1:8000/",
-    "https://31bb-39-51-104-189.ngrok-free.app",
-    "http://localhost:5174",  # React frontend
-    "https://localhost:5174",  # React frontend
-    "http://127.0.0.1:5174",  # React frontend
-    "https://127.0.0.1:5174",  # React frontend
-    "http://localhost:3001",  # React frontend
-    "https://localhost:3001",  # React frontend
-    "http://127.0.0.1:3001",  # React frontend
-    "https://127.0.0.1:3001",  # React frontend
-]
+# CSRF_TRUSTED_ORIGINS = []
 
 ROOT_URLCONF = 'traffic_bot_server.urls'
 
@@ -144,11 +113,11 @@ WSGI_APPLICATION = 'traffic_bot_server.wsgi.application'
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": "botdb",
-        "USER": "sanjay",
-        "PASSWORD": "admin",
-        "HOST": "127.0.0.1",
-        "PORT": "5432",
+        'NAME': config('DB_NAME'),
+        'USER': config('DB_USER'),
+        'PASSWORD': config('DB_PASSWORD'),
+        'HOST': config('DB_HOST'),
+        'PORT': config('DB_PORT'),
     }
 }
 
@@ -156,7 +125,7 @@ DATABASES = {
 CACHES = {
     'default': {
         'BACKEND': 'django_redis.cache.RedisCache',
-        'LOCATION': 'redis://127.0.0.1:6379/1',
+        'LOCATION': 'redis://redis:6379/1',
     }
 }
 
@@ -196,6 +165,10 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = 'static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'static')
+
+MEDIA_URL = 'media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
