@@ -1,4 +1,4 @@
-version: "3.9"
+# version: "3.9"
 
 services:
   backend:
@@ -24,8 +24,8 @@ services:
       - DJANGO_SUPERUSER_USERNAME=admin
       - DJANGO_SUPERUSER_PASSWORD=admin
       - DATABASE_URL=sqlite:////app/db/db.sqlite3
-    env_file:
-      - mdt_backend/.env
+    # env_file:
+    #   - mdt_backend/.env
     
 
   frontend:
