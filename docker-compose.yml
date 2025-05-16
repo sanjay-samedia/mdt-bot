@@ -7,6 +7,7 @@ services:
       dockerfile: Dockerfile
     container_name: django_app
     volumes:
+      - django_static:/app/mdt_backend/static
       - ./mdt_backend:/app
     command: >
       sh -c "
@@ -33,6 +34,7 @@ services:
       dockerfile: Dockerfile
     container_name: react_app
     volumes:
+      - django_static:/usr/share/nginx/html/static
       - ./mdt_frontend:/app
     ports:
       - "3000:80"  # 👈 Map container port 80 (Nginx) to host 3000
@@ -79,4 +81,5 @@ services:
 
 
 volumes:
+  django_static:
   redis_data:
