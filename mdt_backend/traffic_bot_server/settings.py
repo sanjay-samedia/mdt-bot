@@ -78,7 +78,10 @@ CORS_ALLOW_ALL_ORIGINS = True
 
 CORS_ALLOW_CREDENTIALS = True
 
-# CSRF_TRUSTED_ORIGINS = []
+CSRF_TRUSTED_ORIGINS = [
+    'http://3.137.166.107:3000',
+    'http://localhost:3000',  # Optional, for local development
+]
 
 ROOT_URLCONF = 'traffic_bot_server.urls'
 
