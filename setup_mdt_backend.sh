@@ -4,28 +4,37 @@
 set -e
 
 # Variables
-APP_DIR="/home/ubuntu/mdt_backend"
+APP_DIR="/home/ec2-user/mdt_backend"
 PYTHON_VERSION="3.11"
 VENV_DIR="$APP_DIR/venv"
 CELERY_LOG="$APP_DIR/celery.log"
 GUNICORN_LOG="$APP_DIR/gunicorn.log"
 
 echo "==> Updating system packages..."
-sudo apt-get update
+sudo yum update -y
 
 echo "==> Installing system dependencies..."
-sudo apt-get install -y python${PYTHON_VERSION} python3-pip python3-venv gcc libpq-dev
+sudo yum install -y gcc git postgresql-devel python3${PYTHON_VERSION} python3${PYTHON_VERSION}-devel
+
+# Create symlinks for python3.11 and pip3.11 if needed
+if ! command -v python3.11 &> /dev/null; then
+  sudo amazon-linux-extras enable python3.8
+  sudo yum install -y python3.8
+fi
+
+# Use fallback if python3.11 is not installed
+PYTHON_BIN=$(command -v python3.11 || command -v python3.8)
+PIP_BIN=$(command -v pip3.11 || command -v pip3.8)
 
 echo "==> Creating project directory..."
 mkdir -p $APP_DIR
 
 echo "==> Cloning or copying project files to $APP_DIR..."
-# You can use git clone or scp here.
 # git clone <your_repo_url> $APP_DIR
-# Or manually copy using: scp -r ./mdt_backend ubuntu@<your-ec2-ip>:/home/ubuntu/
+# or use: scp -r ./mdt_backend ec2-user@<ip>:/home/ec2-user/
 
 echo "==> Creating virtual environment..."
-python${PYTHON_VERSION} -m venv $VENV_DIR
+$PYTHON_BIN -m venv $VENV_DIR
 
 echo "==> Activating virtual environment..."
 source $VENV_DIR/bin/activate
@@ -42,14 +51,12 @@ echo "==> Collecting static files..."
 python manage.py collectstatic --noinput
 
 echo "==> Starting Gunicorn server..."
-# Run Gunicorn in background and write logs to gunicorn.log
 gunicorn traffic_bot_server.wsgi:application \
   --bind 0.0.0.0:8000 >> "$GUNICORN_LOG" 2>&1 &
 
 echo "==> Starting Celery worker (connecting to Redis in Docker)..."
-# Run Celery in background and write logs to celery.log
 celery -A mdt_backend.traffic_bot_server worker \
-  --concurrency=32 \
+  --concurrency=$(nproc) \
   -l info >> "$CELERY_LOG" 2>&1 &
 
 echo "✅ Setup complete. Gunicorn and Celery are now running."
