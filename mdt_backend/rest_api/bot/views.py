@@ -76,16 +76,16 @@ class BotInstanceViewSet(viewsets.ModelViewSet):
             for i in range(0, requested_visits, chunk_size):
                 visits = min(chunk_size, requested_visits - i)
 
-                if selenium_visits_scheduled < selenium_visits_target:
-                    # Schedule with selenium
-                    use_selenium = True
-                    # Cap the selenium visits to the remaining required selenium visits
-                    if selenium_visits_scheduled + visits > selenium_visits_target:
-                        visits = selenium_visits_target - selenium_visits_scheduled
-                    selenium_visits_scheduled += visits
-                else:
-                    # Schedule without selenium
-                    use_selenium = False
+                # if selenium_visits_scheduled < selenium_visits_target:
+                #     # Schedule with selenium
+                #     use_selenium = True
+                #     # Cap the selenium visits to the remaining required selenium visits
+                #     if selenium_visits_scheduled + visits > selenium_visits_target:
+                #         visits = selenium_visits_target - selenium_visits_scheduled
+                #     selenium_visits_scheduled += visits
+                # else:
+                #     # Schedule without selenium
+                use_selenium = False
 
                 tasks.append(
                     process_traffic_task.s(bot_instance_id, website.url, visits, use_selenium)
