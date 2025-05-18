@@ -128,7 +128,8 @@ class TrafficBot:
                 if self.status in [BotStatus.COMPLETED, BotStatus.FAILED, BotStatus.RUNNING, BotStatus.STOPPED]:
                     update_data['end_time'] = timezone.now()
 
-                BotInstance.objects.filter(id=self.bot_instance_id).update(**update_data)
+                if self.visits_sent <= self.requested_visits:
+                    BotInstance.objects.filter(id=self.bot_instance_id).update(**update_data)
                 logger.debug(f"Updated BotInstance {self.bot_instance_id} at {self.visits_sent} visits")
         except Exception as e:
             logger.error(f"Failed to update BotInstance {self.bot_instance_id}: {str(e)}")
