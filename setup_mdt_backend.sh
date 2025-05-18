@@ -27,7 +27,7 @@ source $VENV_DIR/bin/activate
 
 echo "==> Upgrading pip and installing dependencies..."
 pip install --upgrade pip
-pip install -r $APP_DIR/requirements.txt
+pip install -r /home/ec2-user/mdt-bot/mdt_backend/requirements.txt
 
 echo "==> Running migrations..."
 cd $APP_DIR
