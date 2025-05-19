@@ -71,7 +71,7 @@ services:
     command: >
       sh -c "
         python manage.py migrate &&
-        celery -A mdt_backend.traffic_bot_server worker --concurrency=32 -l info
+        celery -A mdt_backend.traffic_bot_server worker --concurrency=8 -l info
       "
     environment:
       - DJANGO_SETTINGS_MODULE=mdt_backend.traffic_bot_server.settings

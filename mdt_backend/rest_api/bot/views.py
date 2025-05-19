@@ -68,7 +68,7 @@ class BotInstanceViewSet(viewsets.ModelViewSet):
             bot_instance_id = bot_instance.id
 
             # Dynamic chunk size: small tasks use smaller chunks for parallelism
-            chunk_size = min(10000, max(10, requested_visits // 32))
+            chunk_size = min(10000, max(10, requested_visits // 8))
             selenium_visits_target = requested_visits // 2
             selenium_visits_scheduled = 0
             tasks = []
