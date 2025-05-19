@@ -1,31 +1,31 @@
 # version: "3.9"
 
 services:
-  # backend:
-  #   build:
-  #     context: .
-  #     dockerfile: Dockerfile
-  #   container_name: django_app
-  #   image: mdt-bot-backend
-  #   volumes:
-  #     - ./mdt_backend/static:/static
-  #     - ./mdt_backend:/app
-  #   command: >
-  #     sh -c "
-  #       python manage.py migrate &&
-  #       python manage.py collectstatic --noinput &&
-  #       gunicorn traffic_bot_server.wsgi:application --bind 0.0.0.0:8000
-  #     "
-  #   ports:
-  #     - "8000:8000"
-  #   depends_on:
-  #     - redis
-  #   environment:
-  #     - DEBUG=1
-  #     - DJANGO_SETTINGS_MODULE=traffic_bot_server.settings
-  #     - DJANGO_SUPERUSER_USERNAME=admin
-  #     - DJANGO_SUPERUSER_PASSWORD=admin
-  #     - DATABASE_URL=sqlite:////app/db/db.sqlite3
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: django_app
+    image: mdt-bot-backend
+    volumes:
+      - ./mdt_backend/static:/static
+      - ./mdt_backend:/app
+    command: >
+      sh -c "
+        python manage.py migrate &&
+        python manage.py collectstatic --noinput &&
+        gunicorn traffic_bot_server.wsgi:application --bind 0.0.0.0:8000
+      "
+    ports:
+      - "8000:8000"
+    depends_on:
+      - redis
+    environment:
+      - DEBUG=1
+      - DJANGO_SETTINGS_MODULE=traffic_bot_server.settings
+      - DJANGO_SUPERUSER_USERNAME=admin
+      - DJANGO_SUPERUSER_PASSWORD=admin
+      - DATABASE_URL=sqlite:////app/db/db.sqlite3
     # env_file:
     #   - mdt_backend/.env
     
@@ -41,8 +41,8 @@ services:
       - ./mdt_frontend:/app
     ports:
       - "3000:80"  # 👈 Map container port 80 (Nginx) to host 3000
-    # depends_on:
-    #   - backend
+    depends_on:
+      - backend
 
   # db:
   #   image: postgres:15
@@ -66,21 +66,21 @@ services:
     volumes:
       - redis_data:/data
 
-  # celery:
-  #   build: .
-  #   command: >
-  #     sh -c "
-  #       python manage.py migrate &&
-  #       celery -A mdt_backend.traffic_bot_server worker --concurrency=32 -l info
-  #     "
-  #   environment:
-  #     - DJANGO_SETTINGS_MODULE=mdt_backend.traffic_bot_server.settings
-  #   depends_on:
-  #     # - backend
-  #     - redis
-  #   volumes:
-  #     - ./mdt_backend/traffic_bot_server:/app/mdt_backend/traffic_bot_server
-  #     - ./templates:/app/templates
+  celery:
+    build: .
+    command: >
+      sh -c "
+        python manage.py migrate &&
+        celery -A mdt_backend.traffic_bot_server worker --concurrency=32 -l info
+      "
+    environment:
+      - DJANGO_SETTINGS_MODULE=mdt_backend.traffic_bot_server.settings
+    depends_on:
+      - backend
+      - redis
+    volumes:
+      - ./mdt_backend/traffic_bot_server:/app/mdt_backend/traffic_bot_server
+      - ./templates:/app/templates
 
 
 volumes:

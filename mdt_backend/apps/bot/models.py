@@ -48,7 +48,7 @@ class BotInstance(models.Model):
                                                 help_text="Minimum stay time during a visit in seconds.")
     max_stay_time = models.PositiveIntegerField(default=0, validators=[MinValueValidator(0)],
                                                 help_text="Maximum stay time during a visit in seconds.")
-    status = models.CharField(max_length=20, choices=BotStatus.choices, default=BotStatus.STOPPED)
+    status = models.CharField(max_length=20, choices=BotStatus.choices(), default=BotStatus.STOPPED)
     success_rate = models.CharField(max_length=12)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
