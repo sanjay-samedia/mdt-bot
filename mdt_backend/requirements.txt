@@ -41,6 +41,7 @@ prompt_toolkit==3.0.50
 propcache==0.3.1
 psycopg2-binary==2.9.10
 pycparser==2.22
+pyppeteer==2.0.0
 PySocks==1.7.1
 python-dateutil==2.9.0.post0
 python-decouple==3.8
@@ -60,7 +61,7 @@ trio-websocket==0.12.2
 typing_extensions==4.13.1
 tzdata==2025.2
 uritemplate==4.1.1
-urllib3==2.3.0
+urllib3==1.26.18
 vine==5.1.0
 wcwidth==0.2.13
 webdriver-manager==4.0.2

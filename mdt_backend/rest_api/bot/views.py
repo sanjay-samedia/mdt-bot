@@ -25,8 +25,22 @@ class BotInstanceViewSet(viewsets.ModelViewSet):
     # permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        # Only show instances belonging to the requesting user
-        return BotInstance.objects.filter(bot_user__user=self.request.user).order_by('-created_at')[:10]
+        # Get the latest 10 instances for the user
+        queryset = BotInstance.objects.filter(bot_user__user=self.request.user).order_by('-created_at')
+
+        # Get the latest instance (first from ordered queryset)
+        latest_instance = next(iter(queryset), None)
+
+        # Check and update status only if needed
+        if (
+            latest_instance and
+            latest_instance.visits_sent >= latest_instance.requested_visits and
+            latest_instance.status != BotStatus.COMPLETED
+        ):
+            latest_instance.status = BotStatus.COMPLETED
+            latest_instance.save(update_fields=["status"])
+
+        return list(queryset[:10])
 
     def perform_create(self, serializer):
         # Automatically set the bot_user to the requesting user
@@ -68,27 +82,27 @@ class BotInstanceViewSet(viewsets.ModelViewSet):
             bot_instance_id = bot_instance.id
 
             # Dynamic chunk size: small tasks use smaller chunks for parallelism
-            chunk_size = min(10000, max(10, requested_visits // 8))
-            selenium_visits_target = requested_visits // 2
-            selenium_visits_scheduled = 0
+            chunk_size = min(10000, max(10, requested_visits // 32))
+            pyppeteer_visits_target = requested_visits // 2
+            pyppeteer_visits_scheduled = 0
             tasks = []
 
             for i in range(0, requested_visits, chunk_size):
                 visits = min(chunk_size, requested_visits - i)
 
-                # if selenium_visits_scheduled < selenium_visits_target:
-                #     # Schedule with selenium
-                #     use_selenium = True
-                #     # Cap the selenium visits to the remaining required selenium visits
-                #     if selenium_visits_scheduled + visits > selenium_visits_target:
-                #         visits = selenium_visits_target - selenium_visits_scheduled
-                #     selenium_visits_scheduled += visits
-                # else:
-                #     # Schedule without selenium
-                use_selenium = False
+                if pyppeteer_visits_scheduled < pyppeteer_visits_target:
+                    # Schedule with pyppeteer
+                    use_pyppeteer = True
+                    # Cap the pyppeteer visits to the remaining required pyppeteer visits
+                    if pyppeteer_visits_scheduled + visits > pyppeteer_visits_target:
+                        visits = pyppeteer_visits_target - pyppeteer_visits_scheduled
+                    pyppeteer_visits_scheduled += visits
+                else:
+                    # Schedule without pyppeteer
+                    use_pyppeteer = False
 
                 tasks.append(
-                    process_traffic_task.s(bot_instance_id, website.url, visits, use_selenium)
+                    process_traffic_task.s(bot_instance_id, website.url, visits, use_pyppeteer)
                 )
 
             print("tasks:", tasks)

@@ -1,17 +1,18 @@
+import asyncio
 import random
-import time
 from datetime import timedelta
 from django.db import transaction
 from django.db.models import F
 from django.utils import timezone
-import requests
-from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
+from aiohttp import ClientSession
+from pyppeteer import launch
+from pyppeteer.errors import PyppeteerError
 from fake_useragent import UserAgent
 from celery import shared_task
 from django.core.validators import URLValidator
 from django.core.exceptions import ValidationError
 import logging
+from asgiref.sync import async_to_sync, sync_to_async
 
 from apps.bot.models import BotInstance, BotStatus
 
@@ -46,62 +47,105 @@ class TrafficBot:
             self.status = BotStatus.FAILED
             raise ValidationError(f"Invalid URL: {self.website}")
 
-    def send_single_requests_visit(self) -> bool:
-        """Send a single visit using requests."""
+    async def send_single_aiohttp_visit(self, session: ClientSession) -> bool:
+        """Send a single aiohttp visit."""
         try:
+            proxy = random.choice(PROXIES)
             headers = {"User-Agent": self.ua.random}
-            response = requests.get(self.website, headers=headers, timeout=10)
-            if response.status_code == 200:
-                time.sleep(random.uniform(self.min_stay_time, self.max_stay_time))
-                return True
-            else:
-                logger.warning(f"Failed visit to {self.website}: Status {response.status_code}")
-                return False
+            async with session.get(self.website, headers=headers, timeout=10) as response:
+                if response.status == 200:
+                    await asyncio.sleep(random.uniform(self.min_stay_time, self.max_stay_time))
+                    return True
+                else:
+                    logger.warning(f"Failed visit to {self.website}: Status {response.status}")
+                    return False
         except Exception as e:
-            logger.error(f"Error in requests visit to {self.website}: {str(e)}")
+            logger.error(f"Error in aiohttp visit to {self.website}: {str(e)}")
             return False
 
-    def send_requests_traffic(self, num_visits: int) -> int:
-        """Send traffic using requests."""
+    async def send_aiohttp_traffic(self, session: ClientSession, num_visits: int) -> int:
+        """Send traffic using aiohttp with high concurrency."""
         successful_visits = 0
-        for i in range(num_visits):
-            if self.send_single_requests_visit():
-                successful_visits += 1
-            self.visits_sent += 1
-            logger.info("*%s - requests*" % self.visits_sent)
+        batch_size = 50  # Process 50 concurrent requests
+        for i in range(0, num_visits, batch_size):
+            batch_visits = min(batch_size, num_visits - i)
+            tasks = [self.send_single_aiohttp_visit(session) for _ in range(batch_visits)]
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            successful_visits += sum(1 for r in results if r is True)
+            self.visits_sent += batch_visits
+            logger.info(f"*{self.visits_sent} - aiohttp*")
             if self.visits_sent % 1000 == 0:
-                self.update_bot_instance()
+                await sync_to_async(self.update_bot_instance)()
         return successful_visits
 
-    def send_selenium_traffic(self, num_visits: int) -> int:
-        """Process Selenium visits in a single Celery worker."""
+    async def send_pyppeteer_traffic(self, num_visits: int) -> int:
+        """Process Pyppeteer visits in a single Celery worker with retries."""
         successful_visits = 0
-        options = Options()
-        options.add_argument("--headless")
-        options.add_argument("--disable-gpu")
-        options.add_argument("--window-size=1280,720")
-        options.add_argument(f"user-agent={self.ua.random}")
+        browser = None
+        page = None
+        max_retries = 3
 
-        driver = None
-        try:
-            driver = webdriver.Chrome(options=options)
-            for _ in range(num_visits):
-                try:
-                    driver.get(self.website)
-                    driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-                    time.sleep(random.uniform(self.min_stay_time, self.max_stay_time))
-                    successful_visits += 1
-                except Exception as e:
-                    logger.error(f"Error in Selenium visit to {self.website}: {str(e)}")
-                self.visits_sent += 1
-                logger.info("*%s - browser*" % self.visits_sent)
-                if self.visits_sent % 1000 == 0:
-                    self.update_bot_instance()
-        except Exception as e:
-            logger.error(f"Selenium setup error: {str(e)}")
-        finally:
-            if driver:
-                driver.quit()
+        for attempt in range(max_retries):
+            try:
+                # Launch browser with Docker-friendly options
+                browser = await launch(
+                    headless=True,
+                    args=[
+                        '--no-sandbox',
+                        '--disable-setuid-sandbox',
+                        '--disable-gpu',
+                        '--window-size=1280,720',
+                        '--disable-dev-shm-usage',
+                        '--shm-size=2g',
+                        f'--user-agent={self.ua.random}',
+                    ],
+                    handleSIGINT=False,
+                    handleSIGTERM=False,
+                    handleSIGHUP=False,
+                )
+                logger.info("Pyppeteer browser launched successfully")
+                page = await browser.newPage()
+                await page.setViewport({'width': 1280, 'height': 720})
+
+                for _ in range(num_visits):
+                    for page_attempt in range(max_retries):
+                        try:
+                            # Navigate with timeout and wait for network idle
+                            await page.goto(self.website, {'waitUntil': 'networkidle2', 'timeout': 30000})
+                            # Scroll to the bottom
+                            await page.evaluate('window.scrollTo(0, document.body.scrollHeight);')
+                            # Simulate stay time
+                            await asyncio.sleep(random.uniform(self.min_stay_time, self.max_stay_time))
+                            successful_visits += 1
+                            break  # Exit retry loop on success
+                        except PyppeteerError as e:
+                            logger.warning(f"Retry {page_attempt + 1}/{max_retries} for page navigation: {str(e)}")
+                            if page_attempt == max_retries - 1:
+                                logger.error(f"Failed to visit {self.website} after {max_retries} attempts")
+                        except Exception as e:
+                            logger.error(f"Unexpected error in Pyppeteer visit: {str(e)}")
+                            break
+                        finally:
+                            self.visits_sent += 1
+                            logger.info(f"*{self.visits_sent} - browser*")
+                            if self.visits_sent % 1000 == 0:
+                                await sync_to_async(self.update_bot_instance)()
+                break  # Exit browser retry loop on success
+            except PyppeteerError as e:
+                logger.error(f"Pyppeteer setup attempt {attempt + 1}/{max_retries} failed: {str(e)}")
+                if attempt == max_retries - 1:
+                    logger.error("Max retries reached for browser launch")
+                    self.status = BotStatus.FAILED
+            except Exception as e:
+                logger.error(f"Unexpected error in Pyppeteer setup: {str(e)}")
+                self.status = BotStatus.FAILED
+                break
+            finally:
+                if page:
+                    await page.close()
+                if browser:
+                    await browser.close()
+                    logger.info("Pyppeteer browser closed")
         return successful_visits
 
     def update_bot_instance(self):
@@ -132,7 +176,7 @@ class TrafficBot:
             self.update_bot_instance()
 
 @shared_task
-def process_traffic_task(bot_instance_id: int, website: str, requested_visits: int, use_selenium: bool = False):
+def process_traffic_task(bot_instance_id: int, website: str, requested_visits: int, use_pyppeteer: bool = False):
     bot = TrafficBot(bot_instance_id, website, requested_visits)
     bot_instance = BotInstance.objects.get(id=bot_instance_id)
     if (
@@ -146,10 +190,15 @@ def process_traffic_task(bot_instance_id: int, website: str, requested_visits: i
             "message": "Bot instance was stopped recently (within 24 hours)."
         }
     try:
-        if use_selenium:
-            successful_visits = bot.send_selenium_traffic(requested_visits)
+        if use_pyppeteer:
+            async def run_pyppeteer():
+                return await bot.send_pyppeteer_traffic(requested_visits)
+            successful_visits = async_to_sync(run_pyppeteer)()
         else:
-            successful_visits = bot.send_requests_traffic(requested_visits)
+            async def run_aiohttp():
+                async with ClientSession() as session:
+                    return await bot.send_aiohttp_traffic(session, requested_visits)
+            successful_visits = async_to_sync(run_aiohttp)()
 
         bot.update_status(successful_visits)
         log_data = {
